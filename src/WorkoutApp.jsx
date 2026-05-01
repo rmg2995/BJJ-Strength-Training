@@ -276,13 +276,14 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
               fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: safeExIdx === 0 ? "default" : "pointer",
             }}>← Prev</button>
             <button
-              onClick={() => safeExIdx < day.exercises.length - 1 && setExIdx(safeExIdx + 1)}
-              disabled={safeExIdx === day.exercises.length - 1}
+              onClick={() => {
+                if (safeExIdx < day.exercises.length - 1) setExIdx(safeExIdx + 1);
+                else setTab("overview");
+              }}
               style={{
                 flex: 2, padding: 14, borderRadius: 14, border: "none",
-                background: safeExIdx === day.exercises.length - 1 ? "#13131A" : day.color,
-                color: safeExIdx === day.exercises.length - 1 ? "#2A2A2A" : "#fff",
-                fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: safeExIdx === day.exercises.length - 1 ? "default" : "pointer",
+                background: day.color, color: "#fff",
+                fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: "pointer",
               }}
             >{safeExIdx === day.exercises.length - 1 ? "Done 🎯" : "Next →"}</button>
           </div>
