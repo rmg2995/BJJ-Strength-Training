@@ -19,8 +19,7 @@ const LEVELS = [
   { id: "advanced", short: "ADV" },
 ];
 
-export default function WorkoutApp({ level, program, onLevelChange, data, setData }) {
-  const [week, setWeek] = useState(1);
+export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek }) {
   const [dayIdx, setDayIdx] = useState(0);
   const [exIdx, setExIdx] = useState(0);
   const [tab, setTab] = useState("workout");
