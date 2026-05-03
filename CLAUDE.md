@@ -33,7 +33,7 @@ Each program exports:
 
 ## Logged-set storage
 
-`data` is a flat dict keyed by `${level}|w${week}|${dayId}|${exerciseName}|${setIndex}` → `{ w: weight, d: done }`. Including `level` in the key means switching programs preserves logs for both. Currently in-memory only — a refresh wipes it.
+`data` is a flat dict keyed by `${level}|w${week}|${dayId}|${exerciseName}|${setIndex}` → `{ w: weight, d: done }`. Including `level` in the key means switching programs preserves logs for both. Persisted to `localStorage` under `bjj.v1` along with the active level and week, so reloading the page resumes where you left off.
 
 ## Conventions
 
