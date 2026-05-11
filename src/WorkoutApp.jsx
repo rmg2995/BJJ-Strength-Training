@@ -35,6 +35,14 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
   const getW = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.w || "";
   const getD = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.d || false;
+  const maxWeightForEx = (w, dId, eName, sets) => {
+    let max = 0;
+    for (let s = 0; s < sets; s++) {
+      const v = parseFloat(getW(w, dId, eName, s));
+      if (!isNaN(v) && v > max) max = v;
+    }
+    return max;
+  };
 
   function togD(s) {
     const key = wk(level, week, day.id, ex.name, s);
@@ -274,17 +282,30 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
               color: safeExIdx === 0 ? "#2A2A2A" : "#BBB",
               fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: safeExIdx === 0 ? "default" : "pointer",
             }}>← Prev</button>
-            <button
-              onClick={() => {
-                if (safeExIdx < day.exercises.length - 1) setExIdx(safeExIdx + 1);
-                else setTab("overview");
-              }}
-              style={{
-                flex: 2, padding: 14, borderRadius: 14, border: "none",
-                background: day.color, color: "#fff",
-                fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: "pointer",
-              }}
-            >{safeExIdx === day.exercises.length - 1 ? "Done 🎯" : "Next →"}</button>
+            {(() => {
+              const isLastEx = safeExIdx === day.exercises.length - 1;
+              const isLastDay = safeDayIdx === DAYS.length - 1;
+              const isLastWeek = week === TOTAL_WEEKS;
+              let label = "Next →";
+              let onClick = () => setExIdx(safeExIdx + 1);
+              if (isLastEx && !isLastDay) {
+                label = `Day ${DAYS[safeDayIdx + 1].id} →`;
+                onClick = () => { setDayIdx(safeDayIdx + 1); setExIdx(0); };
+              } else if (isLastEx && isLastDay && !isLastWeek) {
+                label = `Week ${week + 1} →`;
+                onClick = () => { setWeek(week + 1); setDayIdx(0); setExIdx(0); };
+              } else if (isLastEx && isLastDay && isLastWeek) {
+                label = "Done 🎯";
+                onClick = () => setTab("overview");
+              }
+              return (
+                <button onClick={onClick} style={{
+                  flex: 2, padding: 14, borderRadius: 14, border: "none",
+                  background: day.color, color: "#fff",
+                  fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: "pointer",
+                }}>{label}</button>
+              );
+            })()}
           </div>
 
         </>) : (
@@ -372,11 +393,37 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   <div style={{ height: 3, background: "#1C1C22", borderRadius: 99, overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ height: "100%", width: `${dp}%`, background: d.color, borderRadius: 99 }} />
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {d.exercises.map(e => (
-                      <span key={e.name} style={{ fontSize: 11, color: "#555", background: "#1A1A22", padding: "3px 8px", borderRadius: 99 }}>
-                        {e.spine ? "🦴 " : ""}{e.name}
-                      </span>
+                      <div key={e.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <div style={{ fontSize: 11, color: e.spine ? "#F59E0B" : "#AAA", fontWeight: 500 }}>
+                          {e.spine ? "🦴 " : ""}{e.name}
+                        </div>
+                        <div style={{ display: "flex", gap: 3 }}>
+                          {Array.from({ length: TOTAL_WEEKS }, (_, wi) => {
+                            const ww = wi + 1;
+                            const top = maxWeightForEx(ww, d.id, e.name, e.sets);
+                            const hasData = top > 0;
+                            const isCurrent = ww === week;
+                            return (
+                              <div key={ww} style={{
+                                flex: 1, minWidth: 0,
+                                fontSize: hasData ? 12 : 9,
+                                padding: "3px 0", borderRadius: 5,
+                                background: hasData ? d.color + "33" : "#16161E",
+                                color: hasData ? "#EFEFEF" : "#3A3A4A",
+                                textAlign: "center",
+                                border: isCurrent ? `1px solid ${d.color}AA` : "1px solid transparent",
+                                fontWeight: hasData ? 700 : 600,
+                                fontFamily: "'Barlow Condensed'",
+                                letterSpacing: hasData ? 0 : 1,
+                              }}>
+                                {hasData ? top : `W${ww}`}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
