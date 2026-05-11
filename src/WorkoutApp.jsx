@@ -101,18 +101,48 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   {day.optional && <span style={{ marginLeft: 8, fontSize: 11, color: "#555", fontFamily: "'Inter'", fontWeight: 500 }}>optional</span>}
                 </div>
               </div>
-              {/* Week picker trigger */}
-              <button
-                onClick={() => setShowWeekPicker(!showWeekPicker)}
-                style={{
-                  background: day.color + "22", border: `1.5px solid ${day.color}55`,
-                  borderRadius: 10, padding: "6px 12px", cursor: "pointer",
-                  display: "flex", flexDirection: "column", alignItems: "center",
-                }}
-              >
-                <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 20, fontWeight: 800, color: day.color, lineHeight: 1 }}>W{week}</div>
-                <div style={{ fontSize: 9, color: day.color, opacity: 0.7, letterSpacing: 1, fontWeight: 600 }}>OF {TOTAL_WEEKS}</div>
-              </button>
+              {/* Week stepper: ← W3 OF 8 → */}
+              <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+                <button
+                  onClick={() => week > 1 && setWeek(week - 1)}
+                  disabled={week === 1}
+                  style={{
+                    background: week === 1 ? "#13131A" : day.color + "11",
+                    border: `1.5px solid ${week === 1 ? "#1C1C22" : day.color + "33"}`,
+                    borderRadius: 10, padding: "0 10px",
+                    cursor: week === 1 ? "default" : "pointer",
+                    color: week === 1 ? "#2A2A2A" : day.color,
+                    fontSize: 18, fontWeight: 700, lineHeight: 1,
+                    display: "flex", alignItems: "center",
+                  }}
+                  aria-label="Previous week"
+                >←</button>
+                <button
+                  onClick={() => setShowWeekPicker(!showWeekPicker)}
+                  style={{
+                    background: day.color + "22", border: `1.5px solid ${day.color}55`,
+                    borderRadius: 10, padding: "6px 12px", cursor: "pointer",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                  }}
+                >
+                  <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 20, fontWeight: 800, color: day.color, lineHeight: 1 }}>W{week}</div>
+                  <div style={{ fontSize: 9, color: day.color, opacity: 0.7, letterSpacing: 1, fontWeight: 600 }}>OF {TOTAL_WEEKS}</div>
+                </button>
+                <button
+                  onClick={() => week < TOTAL_WEEKS && setWeek(week + 1)}
+                  disabled={week === TOTAL_WEEKS}
+                  style={{
+                    background: week === TOTAL_WEEKS ? "#13131A" : day.color + "11",
+                    border: `1.5px solid ${week === TOTAL_WEEKS ? "#1C1C22" : day.color + "33"}`,
+                    borderRadius: 10, padding: "0 10px",
+                    cursor: week === TOTAL_WEEKS ? "default" : "pointer",
+                    color: week === TOTAL_WEEKS ? "#2A2A2A" : day.color,
+                    fontSize: 18, fontWeight: 700, lineHeight: 1,
+                    display: "flex", alignItems: "center",
+                  }}
+                  aria-label="Next week"
+                >→</button>
+              </div>
             </div>
 
             {/* Week picker dropdown */}
