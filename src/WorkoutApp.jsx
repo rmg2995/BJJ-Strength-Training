@@ -19,10 +19,17 @@ const LEVELS = [
   { id: "advanced", short: "ADV" },
 ];
 
-function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
+function ExerciseChart({ values, color, totalWeeks, currentWeek, large = false }) {
   const max = Math.max(...values, 1);
-  const W = 320, H = 90;
-  const padX = 16, padTop = 18, padBottom = 18;
+  const W = large ? 400 : 320;
+  const H = large ? 240 : 90;
+  const padX = large ? 28 : 16;
+  const padTop = large ? 34 : 18;
+  const padBottom = large ? 28 : 18;
+  const valueFont = large ? 16 : 11;
+  const weekFont = large ? 12 : 9;
+  const [rBase, rCurrent] = large ? [5, 7] : [3.2, 4.5];
+  const stroke = large ? 2.6 : 2;
   const xStep = totalWeeks > 1 ? (W - padX * 2) / (totalWeeks - 1) : 0;
 
   const points = values.map((v, i) => ({
@@ -42,26 +49,26 @@ function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
-      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth="0.6" />
-      {area && <path d={area} fill={color} opacity="0.15" />}
-      {path && <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
+      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth={large ? 1 : 0.6} />
+      {area && <path d={area} fill={color} opacity="0.18" />}
+      {path && <path d={path} stroke={color} strokeWidth={stroke} fill="none" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map(p => {
         const isCurrent = p.week === currentWeek;
         return (
           <g key={p.week}>
             {p.y !== null && (
               <>
-                <circle cx={p.x} cy={p.y} r={isCurrent ? 4.5 : 3.2}
+                <circle cx={p.x} cy={p.y} r={isCurrent ? rCurrent : rBase}
                   fill={isCurrent ? "#fff" : color}
-                  stroke={color} strokeWidth="1.4" />
-                <text x={p.x} y={p.y - 7} fill="#EFEFEF" fontSize="11"
+                  stroke={color} strokeWidth={large ? 2 : 1.4} />
+                <text x={p.x} y={p.y - (large ? 12 : 7)} fill="#EFEFEF" fontSize={valueFont}
                   textAnchor="middle" fontFamily="Barlow Condensed, Inter, sans-serif" fontWeight="700">
                   {p.v}
                 </text>
               </>
             )}
-            <text x={p.x} y={H - 4} fill={isCurrent ? "#EFEFEF" : "#555"}
-              fontSize="9" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
+            <text x={p.x} y={H - (large ? 8 : 4)} fill={isCurrent ? "#EFEFEF" : "#555"}
+              fontSize={weekFont} textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
               W{p.week}
             </text>
           </g>
@@ -76,6 +83,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
   const [exIdx, setExIdx] = useState(0);
   const [tab, setTab] = useState("workout");
   const [showWeekPicker, setShowWeekPicker] = useState(false);
+  const [selectedExName, setSelectedExName] = useState(null);
 
   const DAYS = program.days;
   const TOTAL_WEEKS = program.totalWeeks;
@@ -120,14 +128,17 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
   const pct = totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
   const exAllDone = Array.from({ length: ex.sets }, (_, i) => getD(week, day.id, ex.name, i)).every(Boolean);
 
-  function switchDay(i) { setDayIdx(i); setExIdx(0); }
+  function switchDay(i) { setDayIdx(i); setExIdx(0); setSelectedExName(null); }
+
+  // For Progress tab — fall back to first exercise of current day
+  const progressEx = (selectedExName && day.exercises.find(e => e.name === selectedExName)) || day.exercises[0];
 
   return (
     <>
       <style>{css}</style>
       <div style={{ minHeight: "100dvh", background: "#0C0C10", display: "flex", flexDirection: "column", maxWidth: 480, margin: "0 auto" }}>
 
-        {tab === "workout" ? (<>
+        {tab === "workout" && (<>
 
           {/* ── Header ── */}
           <div style={{ padding: "16px 16px 0" }}>
@@ -390,8 +401,9 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
             })()}
           </div>
 
-        </>) : (
+        </>)}
 
+        {tab === "overview" && (
           /* ── Overview tab ── */
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 10px" }}>
 
@@ -475,22 +487,28 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   <div style={{ height: 3, background: "#1C1C22", borderRadius: 99, overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ height: "100%", width: `${dp}%`, background: d.color, borderRadius: 99 }} />
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {d.exercises.map(e => {
-                      const weeklyMaxes = Array.from({ length: TOTAL_WEEKS }, (_, wi) =>
-                        maxWeightForEx(wi + 1, d.id, e.name, e.sets)
-                      );
+                      const cur = maxWeightForEx(week, d.id, e.name, e.sets);
+                      const prev = week > 1 ? maxWeightForEx(week - 1, d.id, e.name, e.sets) : 0;
+                      const delta = cur - prev;
+                      const deltaColor = delta > 0 ? "#22C55E" : delta < 0 ? "#EF4444" : "#555";
                       return (
-                        <div key={e.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize: 11, color: e.spine ? "#F59E0B" : "#AAA", fontWeight: 500 }}>
+                        <div key={e.name} onClick={ev => { ev.stopPropagation(); switchDay(i); setSelectedExName(e.name); setTab("progress"); }}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #1A1A22" }}>
+                          <div style={{ fontSize: 12, color: e.spine ? "#F59E0B" : "#CCC", fontWeight: 500 }}>
                             {e.spine ? "🦴 " : ""}{e.name}
                           </div>
-                          <ExerciseChart
-                            values={weeklyMaxes}
-                            color={d.color}
-                            totalWeeks={TOTAL_WEEKS}
-                            currentWeek={week}
-                          />
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                            <span style={{ fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 16, color: cur > 0 ? "#EFEFEF" : "#3A3A4A" }}>
+                              {cur > 0 ? cur : "—"}
+                            </span>
+                            {cur > 0 && prev > 0 && (
+                              <span style={{ fontSize: 11, color: deltaColor, fontWeight: 700, minWidth: 28, textAlign: "right" }}>
+                                {delta > 0 ? "+" : ""}{delta}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -511,9 +529,121 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
           </div>
         )}
 
+        {tab === "progress" && (
+          /* ── Progress tab ── */
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 10px" }}>
+
+            {/* Level toggle */}
+            <div style={{ display: "flex", gap: 4, background: "#13131A", border: "1px solid #1C1C22", borderRadius: 99, padding: 3, marginBottom: 14, width: "fit-content" }}>
+              {LEVELS.map(l => (
+                <button key={l.id} onClick={() => changeLevel(l.id)} style={{
+                  padding: "5px 14px", borderRadius: 99, border: "none", cursor: "pointer",
+                  background: l.id === level ? day.color : "transparent",
+                  color: l.id === level ? "#fff" : "#555",
+                  fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 13, letterSpacing: 2,
+                }}>{l.short}</button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 14 }}>
+              <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 28, letterSpacing: 1 }}>PROGRESS</div>
+              <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 18, color: "#555" }}>WEEK {week} OF {TOTAL_WEEKS}</div>
+            </div>
+
+            {/* Day selector */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {DAYS.map((d, i) => (
+                <button key={d.id} onClick={() => { setDayIdx(i); setSelectedExName(null); }} style={{
+                  flex: 1, padding: "10px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                  background: i === safeDayIdx ? d.color : "#16161E",
+                  color: i === safeDayIdx ? "#fff" : "#555",
+                  fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: 1,
+                }}>{d.id}</button>
+              ))}
+            </div>
+
+            {/* Exercise picker */}
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", marginBottom: 16, paddingBottom: 6 }}>
+              {day.exercises.map(e => {
+                const isSelected = progressEx.name === e.name;
+                return (
+                  <button key={e.name} onClick={() => setSelectedExName(e.name)} style={{
+                    padding: "8px 14px", borderRadius: 99, border: "none", cursor: "pointer",
+                    background: isSelected ? day.color : "#16161E",
+                    color: isSelected ? "#fff" : "#888",
+                    fontSize: 12, fontWeight: 600,
+                    whiteSpace: "nowrap", flexShrink: 0,
+                  }}>{e.spine ? "🦴 " : ""}{e.name}</button>
+                );
+              })}
+            </div>
+
+            {/* Stats + chart card */}
+            {(() => {
+              const e = progressEx;
+              const weeklyMaxes = Array.from({ length: TOTAL_WEEKS }, (_, wi) =>
+                maxWeightForEx(wi + 1, day.id, e.name, e.sets)
+              );
+              const cur = weeklyMaxes[week - 1] || 0;
+              const prev = week > 1 ? (weeklyMaxes[week - 2] || 0) : 0;
+              const best = Math.max(...weeklyMaxes);
+              const bestWeek = best > 0 ? weeklyMaxes.indexOf(best) + 1 : null;
+              const delta = cur - prev;
+              const hasAny = best > 0;
+
+              const StatBox = ({ label, value, sub, color }) => (
+                <div style={{ flex: 1, background: "#0C0C12", borderRadius: 10, padding: "10px 6px", textAlign: "center", border: "1px solid #1C1C22" }}>
+                  <div style={{ fontSize: 9, letterSpacing: 1.5, color: "#555", fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 26, color: color || "#EFEFEF", lineHeight: 1 }}>{value}</div>
+                  {sub && <div style={{ fontSize: 10, color: "#555", marginTop: 3 }}>{sub}</div>}
+                </div>
+              );
+
+              return (
+                <div style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 16, padding: 16 }}>
+                  <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 22, color: "#EFEFEF", lineHeight: 1.1, marginBottom: 2 }}>
+                    {e.spine ? "🦴 " : ""}{e.name.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: 11, color: day.color, marginBottom: 14, letterSpacing: 1, fontWeight: 600 }}>
+                    DAY {day.id} · {day.label.toUpperCase()} · {e.sets}×{e.reps}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+                    <StatBox label={`WEEK ${week}`} value={cur > 0 ? cur : "—"} color={day.color} />
+                    <StatBox label="BEST" value={hasAny ? best : "—"} sub={hasAny ? `W${bestWeek}` : ""} />
+                    <StatBox
+                      label="Δ LAST"
+                      value={cur > 0 && prev > 0 ? (delta > 0 ? `+${delta}` : `${delta}`) : "—"}
+                      color={delta > 0 ? "#22C55E" : delta < 0 ? "#EF4444" : undefined}
+                    />
+                  </div>
+
+                  {hasAny ? (
+                    <ExerciseChart
+                      values={weeklyMaxes}
+                      color={day.color}
+                      totalWeeks={TOTAL_WEEKS}
+                      currentWeek={week}
+                      large
+                    />
+                  ) : (
+                    <div style={{ padding: "40px 0", textAlign: "center", color: "#444", fontSize: 13 }}>
+                      No data yet — log a set in the Workout tab to start tracking.
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 11, color: "#555", lineHeight: 1.5, marginTop: 14, paddingTop: 14, borderTop: "1px solid #1C1C22" }}>
+                    {e.spine && <span style={{ color: "#F59E0B", marginRight: 4 }}>🦴</span>}{e.note}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         {/* Bottom nav */}
         <div style={{ background: "#0C0C10", borderTop: "1px solid #16161E", display: "flex", padding: "8px 16px 20px", gap: 8, flexShrink: 0 }}>
-          {[["workout", "🏋️", "Workout"], ["overview", "📋", "Overview"]].map(([id, icon, label]) => (
+          {[["workout", "🏋️", "Workout"], ["progress", "📈", "Progress"], ["overview", "📋", "Overview"]].map(([id, icon, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               flex: 1, padding: "9px", borderRadius: 12, border: "none", cursor: "pointer",
               background: tab === id ? "#16161E" : "transparent",
