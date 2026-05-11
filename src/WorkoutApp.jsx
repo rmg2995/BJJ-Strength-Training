@@ -19,6 +19,58 @@ const LEVELS = [
   { id: "advanced", short: "ADV" },
 ];
 
+function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
+  const max = Math.max(...values, 1);
+  const W = 200, H = 58;
+  const padX = 10, padTop = 12, padBottom = 12;
+  const xStep = totalWeeks > 1 ? (W - padX * 2) / (totalWeeks - 1) : 0;
+
+  const points = values.map((v, i) => ({
+    x: padX + i * xStep,
+    y: v > 0 ? padTop + (H - padTop - padBottom) * (1 - v / max) : null,
+    v,
+    week: i + 1,
+  }));
+
+  const drawn = points.filter(p => p.y !== null);
+  const path = drawn.length > 0
+    ? drawn.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ")
+    : null;
+  const area = drawn.length > 1
+    ? `${drawn.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ")} L${drawn[drawn.length - 1].x},${H - padBottom} L${drawn[0].x},${H - padBottom} Z`
+    : null;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
+      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth="0.5" />
+      {area && <path d={area} fill={color} opacity="0.15" />}
+      {path && <path d={path} stroke={color} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+      {points.map(p => {
+        const isCurrent = p.week === currentWeek;
+        return (
+          <g key={p.week}>
+            {p.y !== null && (
+              <>
+                <circle cx={p.x} cy={p.y} r={isCurrent ? 2.8 : 2}
+                  fill={isCurrent ? "#fff" : color}
+                  stroke={color} strokeWidth="1" />
+                <text x={p.x} y={p.y - 5} fill="#EFEFEF" fontSize="7.5"
+                  textAnchor="middle" fontFamily="Barlow Condensed, Inter, sans-serif" fontWeight="700">
+                  {p.v}
+                </text>
+              </>
+            )}
+            <text x={p.x} y={H - 3} fill={isCurrent ? "#EFEFEF" : "#444"}
+              fontSize="6.5" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
+              W{p.week}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek }) {
   const [dayIdx, setDayIdx] = useState(0);
   const [exIdx, setExIdx] = useState(0);
@@ -423,38 +475,25 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   <div style={{ height: 3, background: "#1C1C22", borderRadius: 99, overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ height: "100%", width: `${dp}%`, background: d.color, borderRadius: 99 }} />
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {d.exercises.map(e => (
-                      <div key={e.name} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <div style={{ fontSize: 11, color: e.spine ? "#F59E0B" : "#AAA", fontWeight: 500 }}>
-                          {e.spine ? "🦴 " : ""}{e.name}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {d.exercises.map(e => {
+                      const weeklyMaxes = Array.from({ length: TOTAL_WEEKS }, (_, wi) =>
+                        maxWeightForEx(wi + 1, d.id, e.name, e.sets)
+                      );
+                      return (
+                        <div key={e.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ fontSize: 11, color: e.spine ? "#F59E0B" : "#AAA", fontWeight: 500 }}>
+                            {e.spine ? "🦴 " : ""}{e.name}
+                          </div>
+                          <ExerciseChart
+                            values={weeklyMaxes}
+                            color={d.color}
+                            totalWeeks={TOTAL_WEEKS}
+                            currentWeek={week}
+                          />
                         </div>
-                        <div style={{ display: "flex", gap: 3 }}>
-                          {Array.from({ length: TOTAL_WEEKS }, (_, wi) => {
-                            const ww = wi + 1;
-                            const top = maxWeightForEx(ww, d.id, e.name, e.sets);
-                            const hasData = top > 0;
-                            const isCurrent = ww === week;
-                            return (
-                              <div key={ww} style={{
-                                flex: 1, minWidth: 0,
-                                fontSize: hasData ? 12 : 9,
-                                padding: "3px 0", borderRadius: 5,
-                                background: hasData ? d.color + "33" : "#16161E",
-                                color: hasData ? "#EFEFEF" : "#3A3A4A",
-                                textAlign: "center",
-                                border: isCurrent ? `1px solid ${d.color}AA` : "1px solid transparent",
-                                fontWeight: hasData ? 700 : 600,
-                                fontFamily: "'Barlow Condensed'",
-                                letterSpacing: hasData ? 0 : 1,
-                              }}>
-                                {hasData ? top : `W${ww}`}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               );
