@@ -21,8 +21,8 @@ const LEVELS = [
 
 function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
   const max = Math.max(...values, 1);
-  const W = 200, H = 58;
-  const padX = 10, padTop = 12, padBottom = 12;
+  const W = 320, H = 90;
+  const padX = 16, padTop = 18, padBottom = 18;
   const xStep = totalWeeks > 1 ? (W - padX * 2) / (totalWeeks - 1) : 0;
 
   const points = values.map((v, i) => ({
@@ -41,27 +41,27 @@ function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
     : null;
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
-      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth="0.5" />
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth="0.6" />
       {area && <path d={area} fill={color} opacity="0.15" />}
-      {path && <path d={path} stroke={color} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+      {path && <path d={path} stroke={color} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map(p => {
         const isCurrent = p.week === currentWeek;
         return (
           <g key={p.week}>
             {p.y !== null && (
               <>
-                <circle cx={p.x} cy={p.y} r={isCurrent ? 2.8 : 2}
+                <circle cx={p.x} cy={p.y} r={isCurrent ? 4.5 : 3.2}
                   fill={isCurrent ? "#fff" : color}
-                  stroke={color} strokeWidth="1" />
-                <text x={p.x} y={p.y - 5} fill="#EFEFEF" fontSize="7.5"
+                  stroke={color} strokeWidth="1.4" />
+                <text x={p.x} y={p.y - 7} fill="#EFEFEF" fontSize="11"
                   textAnchor="middle" fontFamily="Barlow Condensed, Inter, sans-serif" fontWeight="700">
                   {p.v}
                 </text>
               </>
             )}
-            <text x={p.x} y={H - 3} fill={isCurrent ? "#EFEFEF" : "#444"}
-              fontSize="6.5" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
+            <text x={p.x} y={H - 4} fill={isCurrent ? "#EFEFEF" : "#555"}
+              fontSize="9" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
               W{p.week}
             </text>
           </g>
