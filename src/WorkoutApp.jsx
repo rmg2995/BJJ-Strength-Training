@@ -19,6 +19,58 @@ const LEVELS = [
   { id: "advanced", short: "ADV" },
 ];
 
+function ExerciseChart({ values, color, totalWeeks, currentWeek }) {
+  const max = Math.max(...values, 1);
+  const W = 200, H = 58;
+  const padX = 10, padTop = 12, padBottom = 12;
+  const xStep = totalWeeks > 1 ? (W - padX * 2) / (totalWeeks - 1) : 0;
+
+  const points = values.map((v, i) => ({
+    x: padX + i * xStep,
+    y: v > 0 ? padTop + (H - padTop - padBottom) * (1 - v / max) : null,
+    v,
+    week: i + 1,
+  }));
+
+  const drawn = points.filter(p => p.y !== null);
+  const path = drawn.length > 0
+    ? drawn.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ")
+    : null;
+  const area = drawn.length > 1
+    ? `${drawn.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ")} L${drawn[drawn.length - 1].x},${H - padBottom} L${drawn[0].x},${H - padBottom} Z`
+    : null;
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H, display: "block" }} preserveAspectRatio="none">
+      <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="#222" strokeWidth="0.5" />
+      {area && <path d={area} fill={color} opacity="0.15" />}
+      {path && <path d={path} stroke={color} strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />}
+      {points.map(p => {
+        const isCurrent = p.week === currentWeek;
+        return (
+          <g key={p.week}>
+            {p.y !== null && (
+              <>
+                <circle cx={p.x} cy={p.y} r={isCurrent ? 2.8 : 2}
+                  fill={isCurrent ? "#fff" : color}
+                  stroke={color} strokeWidth="1" />
+                <text x={p.x} y={p.y - 5} fill="#EFEFEF" fontSize="7.5"
+                  textAnchor="middle" fontFamily="Barlow Condensed, Inter, sans-serif" fontWeight="700">
+                  {p.v}
+                </text>
+              </>
+            )}
+            <text x={p.x} y={H - 3} fill={isCurrent ? "#EFEFEF" : "#444"}
+              fontSize="6.5" textAnchor="middle" fontFamily="Inter, sans-serif" fontWeight={isCurrent ? 700 : 500}>
+              W{p.week}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek }) {
   const [dayIdx, setDayIdx] = useState(0);
   const [exIdx, setExIdx] = useState(0);
@@ -35,6 +87,14 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
   const getW = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.w || "";
   const getD = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.d || false;
+  const maxWeightForEx = (w, dId, eName, sets) => {
+    let max = 0;
+    for (let s = 0; s < sets; s++) {
+      const v = parseFloat(getW(w, dId, eName, s));
+      if (!isNaN(v) && v > max) max = v;
+    }
+    return max;
+  };
 
   function togD(s) {
     const key = wk(level, week, day.id, ex.name, s);
@@ -93,18 +153,48 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   {day.optional && <span style={{ marginLeft: 8, fontSize: 11, color: "#555", fontFamily: "'Inter'", fontWeight: 500 }}>optional</span>}
                 </div>
               </div>
-              {/* Week picker trigger */}
-              <button
-                onClick={() => setShowWeekPicker(!showWeekPicker)}
-                style={{
-                  background: day.color + "22", border: `1.5px solid ${day.color}55`,
-                  borderRadius: 10, padding: "6px 12px", cursor: "pointer",
-                  display: "flex", flexDirection: "column", alignItems: "center",
-                }}
-              >
-                <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 20, fontWeight: 800, color: day.color, lineHeight: 1 }}>W{week}</div>
-                <div style={{ fontSize: 9, color: day.color, opacity: 0.7, letterSpacing: 1, fontWeight: 600 }}>OF {TOTAL_WEEKS}</div>
-              </button>
+              {/* Week stepper: ← W3 OF 8 → */}
+              <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+                <button
+                  onClick={() => week > 1 && setWeek(week - 1)}
+                  disabled={week === 1}
+                  style={{
+                    background: week === 1 ? "#13131A" : day.color + "11",
+                    border: `1.5px solid ${week === 1 ? "#1C1C22" : day.color + "33"}`,
+                    borderRadius: 10, padding: "0 10px",
+                    cursor: week === 1 ? "default" : "pointer",
+                    color: week === 1 ? "#2A2A2A" : day.color,
+                    fontSize: 18, fontWeight: 700, lineHeight: 1,
+                    display: "flex", alignItems: "center",
+                  }}
+                  aria-label="Previous week"
+                >←</button>
+                <button
+                  onClick={() => setShowWeekPicker(!showWeekPicker)}
+                  style={{
+                    background: day.color + "22", border: `1.5px solid ${day.color}55`,
+                    borderRadius: 10, padding: "6px 12px", cursor: "pointer",
+                    display: "flex", flexDirection: "column", alignItems: "center",
+                  }}
+                >
+                  <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 20, fontWeight: 800, color: day.color, lineHeight: 1 }}>W{week}</div>
+                  <div style={{ fontSize: 9, color: day.color, opacity: 0.7, letterSpacing: 1, fontWeight: 600 }}>OF {TOTAL_WEEKS}</div>
+                </button>
+                <button
+                  onClick={() => week < TOTAL_WEEKS && setWeek(week + 1)}
+                  disabled={week === TOTAL_WEEKS}
+                  style={{
+                    background: week === TOTAL_WEEKS ? "#13131A" : day.color + "11",
+                    border: `1.5px solid ${week === TOTAL_WEEKS ? "#1C1C22" : day.color + "33"}`,
+                    borderRadius: 10, padding: "0 10px",
+                    cursor: week === TOTAL_WEEKS ? "default" : "pointer",
+                    color: week === TOTAL_WEEKS ? "#2A2A2A" : day.color,
+                    fontSize: 18, fontWeight: 700, lineHeight: 1,
+                    display: "flex", alignItems: "center",
+                  }}
+                  aria-label="Next week"
+                >→</button>
+              </div>
             </div>
 
             {/* Week picker dropdown */}
@@ -274,17 +364,30 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
               color: safeExIdx === 0 ? "#2A2A2A" : "#BBB",
               fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: safeExIdx === 0 ? "default" : "pointer",
             }}>← Prev</button>
-            <button
-              onClick={() => {
-                if (safeExIdx < day.exercises.length - 1) setExIdx(safeExIdx + 1);
-                else setTab("overview");
-              }}
-              style={{
-                flex: 2, padding: 14, borderRadius: 14, border: "none",
-                background: day.color, color: "#fff",
-                fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: "pointer",
-              }}
-            >{safeExIdx === day.exercises.length - 1 ? "Done 🎯" : "Next →"}</button>
+            {(() => {
+              const isLastEx = safeExIdx === day.exercises.length - 1;
+              const isLastDay = safeDayIdx === DAYS.length - 1;
+              const isLastWeek = week === TOTAL_WEEKS;
+              let label = "Next →";
+              let onClick = () => setExIdx(safeExIdx + 1);
+              if (isLastEx && !isLastDay) {
+                label = `Day ${DAYS[safeDayIdx + 1].id} →`;
+                onClick = () => { setDayIdx(safeDayIdx + 1); setExIdx(0); };
+              } else if (isLastEx && isLastDay && !isLastWeek) {
+                label = `Week ${week + 1} →`;
+                onClick = () => { setWeek(week + 1); setDayIdx(0); setExIdx(0); };
+              } else if (isLastEx && isLastDay && isLastWeek) {
+                label = "Done 🎯";
+                onClick = () => setTab("overview");
+              }
+              return (
+                <button onClick={onClick} style={{
+                  flex: 2, padding: 14, borderRadius: 14, border: "none",
+                  background: day.color, color: "#fff",
+                  fontFamily: "'Inter'", fontWeight: 600, fontSize: 15, cursor: "pointer",
+                }}>{label}</button>
+              );
+            })()}
           </div>
 
         </>) : (
@@ -372,12 +475,25 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   <div style={{ height: 3, background: "#1C1C22", borderRadius: 99, overflow: "hidden", marginBottom: 8 }}>
                     <div style={{ height: "100%", width: `${dp}%`, background: d.color, borderRadius: 99 }} />
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                    {d.exercises.map(e => (
-                      <span key={e.name} style={{ fontSize: 11, color: "#555", background: "#1A1A22", padding: "3px 8px", borderRadius: 99 }}>
-                        {e.spine ? "🦴 " : ""}{e.name}
-                      </span>
-                    ))}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {d.exercises.map(e => {
+                      const weeklyMaxes = Array.from({ length: TOTAL_WEEKS }, (_, wi) =>
+                        maxWeightForEx(wi + 1, d.id, e.name, e.sets)
+                      );
+                      return (
+                        <div key={e.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ fontSize: 11, color: e.spine ? "#F59E0B" : "#AAA", fontWeight: 500 }}>
+                            {e.spine ? "🦴 " : ""}{e.name}
+                          </div>
+                          <ExerciseChart
+                            values={weeklyMaxes}
+                            color={d.color}
+                            totalWeeks={TOTAL_WEEKS}
+                            currentWeek={week}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
