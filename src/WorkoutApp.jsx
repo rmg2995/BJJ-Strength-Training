@@ -1,4 +1,6 @@
 import { useState } from "react";
+import IntervalTimer from "./IntervalTimer";
+import { READY, phaseOf, resolveExercise, buildSegments } from "./engine";
 
 const css = `
   @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
@@ -13,6 +15,9 @@ const css = `
 
 // key: level · week · day · exercise · set
 const wk = (level, w, dId, eName, s) => `${level}|w${w}|${dId}|${eName}|${s}`;
+
+// Sets scanned when reading history (covers any week-specific round count)
+const MAX_SETS = 12;
 
 const LEVELS = [
   { id: "intermediate", short: "INT" },
@@ -78,7 +83,7 @@ function ExerciseChart({ values, color, totalWeeks, currentWeek, large = false }
   );
 }
 
-export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek }) {
+export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek, ready, onReadyChange }) {
   const [dayIdx, setDayIdx] = useState(0);
   const [exIdx, setExIdx] = useState(0);
   const [tab, setTab] = useState("workout");
@@ -91,13 +96,19 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
   const safeDayIdx = Math.min(dayIdx, DAYS.length - 1);
   const day = DAYS[safeDayIdx];
   const safeExIdx = Math.min(exIdx, day.exercises.length - 1);
-  const ex = day.exercises[safeExIdx];
+
+  const readiness = READY.find(r => r.id === ready) || READY[0];
+  const k = readiness.k;
+  const phase = phaseOf(week, program.deloadWeek, TOTAL_WEEKS);
+  const resolve = (e, w, kk = 1) => resolveExercise(e, w, kk, program.deloadWeek);
+  const exs = day.exercises.map(e => resolve(e, week, k));
+  const ex = exs[safeExIdx];
 
   const getW = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.w || "";
   const getD = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.d || false;
-  const maxWeightForEx = (w, dId, eName, sets) => {
+  const maxWeightForEx = (w, dId, eName) => {
     let max = 0;
-    for (let s = 0; s < sets; s++) {
+    for (let s = 0; s < MAX_SETS; s++) {
       const v = parseFloat(getW(w, dId, eName, s));
       if (!isNaN(v) && v > max) max = v;
     }
@@ -107,6 +118,11 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
   function togD(s) {
     const key = wk(level, week, day.id, ex.name, s);
     setData({ ...data, [key]: { ...data[key], d: !data[key]?.d } });
+  }
+
+  function markDone(s) {
+    const key = wk(level, week, day.id, ex.name, s);
+    setData(d => ({ ...d, [key]: { ...d[key], d: true } }));
   }
 
   function updateWeight(setIdx, val) {
@@ -122,11 +138,21 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
     onLevelChange(newLevel);
   }
 
-  const totalSets = day.exercises.reduce((a, e) => a + e.sets, 0);
-  const doneSets = day.exercises.reduce((a, e) =>
-    a + Array.from({ length: e.sets }, (_, i) => getD(week, day.id, e.name, i)).filter(Boolean).length, 0);
-  const pct = totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
-  const exAllDone = Array.from({ length: ex.sets }, (_, i) => getD(week, day.id, ex.name, i)).every(Boolean);
+  const exDone = (w, d, e) => Array.from({ length: e.sets }, (_, i) => getD(w, d.id, e.name, i)).filter(Boolean).length;
+  const dayStats = (d, w, kk = 1) => {
+    const list = d.exercises.map(e => resolve(e, w, kk));
+    return { total: list.reduce((a, e) => a + e.sets, 0), done: list.reduce((a, e) => a + exDone(w, d, e), 0) };
+  };
+  // Week totals only count the required lifts; optional days (Minimum Dose, Zone 2) are extras
+  const weekStats = w => DAYS.filter(d => !d.optional).reduce((a, d) => {
+    const st = dayStats(d, w);
+    return { total: a.total + st.total, done: a.done + st.done };
+  }, { total: 0, done: 0 });
+  const weekHasLogs = w => Object.keys(data).some(key => key.startsWith(`${level}|w${w}|`) && data[key].d);
+
+  const { total: totalSets, done: doneSets } = dayStats(day, week, k);
+  const pct = totalSets ? Math.min(100, Math.round((doneSets / totalSets) * 100)) : 0;
+  const exAllDone = exDone(week, day, ex) >= ex.sets;
 
   function switchDay(i) { setDayIdx(i); setExIdx(0); setSelectedExName(null); }
 
@@ -161,7 +187,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 <div style={{ fontSize: 10, letterSpacing: 3, color: "#444", fontWeight: 600, marginBottom: 2 }}>{program.tagline}</div>
                 <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 24, fontWeight: 800, letterSpacing: 1 }}>
                   {day.label.toUpperCase()}
-                  {day.optional && <span style={{ marginLeft: 8, fontSize: 11, color: "#555", fontFamily: "'Inter'", fontWeight: 500 }}>optional</span>}
+                  {day.optional && <span style={{ marginLeft: 8, fontSize: 11, color: "#555", fontFamily: "'Inter'", fontWeight: 500 }}>{day.tag || "optional"}</span>}
                 </div>
               </div>
               {/* Week stepper: ← W3 OF 8 → */}
@@ -214,10 +240,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontWeight: 700, marginBottom: 8 }}>SELECT WEEK</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => {
-                    const wDone = DAYS.reduce((a, d) =>
-                      a + d.exercises.reduce((b, e) =>
-                        b + Array.from({ length: e.sets }, (_, s) => getD(w, d.id, e.name, s)).filter(Boolean).length, 0), 0);
-                    const hasData = wDone > 0;
+                    const hasData = weekHasLogs(w);
                     return (
                       <button key={w} onClick={() => { setWeek(w); setShowWeekPicker(false); }} style={{
                         width: "calc(25% - 5px)", padding: "8px 0", borderRadius: 10, border: "none", cursor: "pointer",
@@ -238,20 +261,33 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
             {/* Progress bar */}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontSize: 10, color: "#444" }}>Week {week} progress</span>
+              <span style={{ fontSize: 10, color: phase.color, fontWeight: 700, letterSpacing: 1 }}>{phase.name}</span>
               <span style={{ fontSize: 10, color: pct === 100 ? "#22C55E" : day.color, fontWeight: 700 }}>{pct}% · {doneSets}/{totalSets} sets</span>
             </div>
             <div style={{ height: 3, background: "#1C1C22", borderRadius: 99, overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${pct}%`, background: day.color, borderRadius: 99, transition: "width 0.4s" }} />
             </div>
 
+            {/* Readiness */}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontWeight: 700, marginBottom: 6 }}>TODAY I FEEL</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {READY.map(r => (
+                  <button key={r.id} onClick={() => onReadyChange(r.id)} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                    background: ready === r.id ? r.color : "#16161E",
+                    color: ready === r.id ? "#EFEFEF" : "#555", fontWeight: 600, fontSize: 12,
+                  }}>{r.label}</button>
+                ))}
+              </div>
+              {ready !== "fresh" && <div style={{ marginTop: 6, fontSize: 11, color: "#8A6040", lineHeight: 1.4 }}>{readiness.hint}</div>}
+            </div>
+
             {/* Day tabs */}
             <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
               {DAYS.map((d, i) => {
-                const dT = d.exercises.reduce((a, e) => a + e.sets, 0);
-                const dD = d.exercises.reduce((a, e) =>
-                  a + Array.from({ length: e.sets }, (_, s) => getD(week, d.id, e.name, s)).filter(Boolean).length, 0);
-                const full = dT === dD;
+                const st = dayStats(d, week, k);
+                const full = st.total > 0 && st.done >= st.total;
                 return (
                   <button key={d.id} onClick={() => switchDay(i)} style={{
                     flex: 1, padding: "8px 0", borderRadius: 10, border: "none", cursor: "pointer",
@@ -272,8 +308,8 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
           {/* Exercise dots */}
           <div style={{ display: "flex", gap: 5, justifyContent: "center", padding: "12px 16px 8px", flexWrap: "wrap" }}>
-            {day.exercises.map((e, i) => {
-              const done = Array.from({ length: e.sets }, (_, s) => getD(week, day.id, e.name, s)).every(Boolean);
+            {exs.map((e, i) => {
+              const done = exDone(week, day, e) >= e.sets;
               return (
                 <button key={i} onClick={() => setExIdx(i)} style={{
                   width: i === safeExIdx ? 22 : 8, height: 8, borderRadius: 99, border: "none", cursor: "pointer",
@@ -296,7 +332,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 10, letterSpacing: 2, color: day.color, fontWeight: 700, marginBottom: 4 }}>
-                      {safeExIdx + 1} / {day.exercises.length}{ex.spine ? "  🦴" : ""}
+                      {safeExIdx + 1} / {day.exercises.length}{ex.pair ? `  ·  ${ex.pair}` : ""}{ex.spine ? "  🦴" : ""}
                     </div>
                     <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 26, color: "#EFEFEF", lineHeight: 1.05 }}>
                       {ex.name.toUpperCase()}
@@ -304,11 +340,16 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   </div>
                   <div style={{ textAlign: "center", marginLeft: 14, flexShrink: 0 }}>
                     <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 36, fontWeight: 800, color: day.color, lineHeight: 1 }}>{ex.sets}</div>
-                    <div style={{ fontSize: 9, color: "#555", letterSpacing: 1, fontWeight: 600 }}>SETS</div>
+                    <div style={{ fontSize: 9, color: "#555", letterSpacing: 1, fontWeight: 600 }}>{ex.progression?.type === "intervals" ? "ROUNDS" : "SETS"}</div>
                   </div>
                 </div>
-                <div style={{ marginTop: 6, display: "inline-flex", background: day.color + "25", borderRadius: 99, padding: "3px 10px" }}>
-                  <span style={{ fontSize: 13, color: day.color, fontWeight: 600 }}>{ex.reps} reps</span>
+                <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ background: day.color + "25", borderRadius: 99, padding: "3px 10px", fontSize: 13, color: day.color, fontWeight: 600 }}>
+                    {/^[\d–-]+( ea\.)?$/.test(ex.reps) ? `${ex.reps} reps` : ex.reps}
+                  </span>
+                  {ex.rest && ex.rest !== "—" && (
+                    <span style={{ background: "#1C1C22", borderRadius: 99, padding: "3px 10px", fontSize: 13, color: "#888", fontWeight: 600 }}>Rest {ex.rest}</span>
+                  )}
                 </div>
               </div>
 
@@ -317,10 +358,26 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 <div style={{ fontSize: 13, color: "#777", lineHeight: 1.5 }}>
                   {ex.spine && <span style={{ color: "#F59E0B", marginRight: 4 }}>🦴</span>}{ex.note}
                 </div>
+                {!ex.cond && ex.pair && (
+                  <div style={{ fontSize: 11, color: "#4A4A5A", marginTop: 4 }}>
+                    Superset: alternate {ex.pair[0]}1 ↔ {ex.pair[0]}2 and rest only after the {ex.pair[0]}2 set. Keeps your heart rate up.
+                  </div>
+                )}
+                {week === program.deloadWeek && !ex.cond && (
+                  <div style={{ fontSize: 11, color: phase.color, marginTop: 4 }}>Deload: fewer sets this week — same weights, stay crisp.</div>
+                )}
               </div>
 
               {/* Sets */}
               <div style={{ padding: "12px 18px", flex: 1, overflowY: "auto" }}>
+                {buildSegments(ex, week) && (
+                  <IntervalTimer
+                    key={`${level}|${week}|${day.id}|${ex.name}|${ready}`}
+                    segs={buildSegments(ex, week)}
+                    color={day.color}
+                    onSegDone={markDone}
+                  />
+                )}
                 <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontWeight: 700, marginBottom: 8 }}>LOG YOUR SETS — WEEK {week}</div>
                 {Array.from({ length: ex.sets }, (_, i) => {
                   const done = getD(week, day.id, ex.name, i);
@@ -334,10 +391,10 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                       borderRadius: 12, padding: "8px 12px", transition: "all 0.2s",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, color: "#333", width: 22, textAlign: "center", flexShrink: 0 }}>S{i + 1}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, color: "#333", width: 22, textAlign: "center", flexShrink: 0 }}>{ex.progression?.type === "intervals" ? "R" : "S"}{i + 1}</div>
                         <input
                           type="number"
-                          placeholder="lbs / kg"
+                          placeholder={ex.log || "lbs / kg"}
                           value={weight}
                           onChange={e => updateWeight(i, e.target.value)}
                           style={{
@@ -357,7 +414,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                       </div>
                       {prevWeight !== "" && (
                         <div style={{ marginTop: 4, fontSize: 11, color: "#3A3A4A", paddingLeft: 32 }}>
-                          Last week: <span style={{ color: "#4A4A5A", fontWeight: 600 }}>{prevWeight} lbs</span>
+                          Last week: <span style={{ color: "#4A4A5A", fontWeight: 600 }}>{prevWeight}{ex.log ? "" : " lbs"}</span>
                         </div>
                       )}
                     </div>
@@ -430,11 +487,8 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
               <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontWeight: 700, marginBottom: 8 }}>{TOTAL_WEEKS}-WEEK PROGRESS</div>
               <div style={{ display: "flex", gap: 5 }}>
                 {Array.from({ length: TOTAL_WEEKS }, (_, i) => i + 1).map(w => {
-                  const wDone = DAYS.reduce((a, d) =>
-                    a + d.exercises.reduce((b, e) =>
-                      b + Array.from({ length: e.sets }, (_, s) => getD(w, d.id, e.name, s)).filter(Boolean).length, 0), 0);
-                  const wTotal = DAYS.reduce((a, d) => a + d.exercises.reduce((b, e) => b + e.sets, 0), 0);
-                  const wp = wTotal ? Math.round((wDone / wTotal) * 100) : 0;
+                  const ws = weekStats(w);
+                  const wp = ws.total ? Math.min(100, Math.round((ws.done / ws.total) * 100)) : 0;
                   const isActive = w === week;
                   return (
                     <button key={w} onClick={() => { setWeek(w); setTab("workout"); }} style={{
@@ -448,7 +502,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                       }}>
                         <div style={{
                           position: "absolute", bottom: 0, width: "100%",
-                          height: `${wp}%`, background: wp === 100 ? "#22C55E" : "#2563EB",
+                          height: `${wp}%`, background: wp === 100 ? "#22C55E" : phaseOf(w, program.deloadWeek, TOTAL_WEEKS).color,
                           transition: "height 0.3s",
                         }} />
                       </div>
@@ -457,18 +511,31 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   );
                 })}
               </div>
+              <div style={{ marginTop: 8, fontSize: 11, color: "#555", lineHeight: 1.5 }}>
+                <span style={{ color: phase.color, fontWeight: 700 }}>{phase.name}</span> — {phase.desc}
+              </div>
             </div>
 
             <div style={{ background: "#13131A", border: "1px solid #7C2D12", borderRadius: 12, padding: "10px 14px", marginBottom: 14 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "#F59E0B", letterSpacing: 2, marginBottom: 4 }}>⚠ L4/L5 DISC</div>
-              <div style={{ fontSize: 12, color: "#8A6040", lineHeight: 1.55 }}>🦴 marks spine-safe exercises. Stop if you feel radiating leg pain. No barbell back squats or conventional deadlifts.</div>
+              <div style={{ fontSize: 12, color: "#8A6040", lineHeight: 1.55 }}>🦴 marks spine-sensitive exercises. Stop if you feel radiating leg pain. No barbell back squats or conventional deadlifts.</div>
             </div>
 
+            {program.why && (
+              <div style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 16, padding: "14px", marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", letterSpacing: 2, marginBottom: 10 }}>HOW THIS WEEK WORKS</div>
+                {program.why.map(([t, d]) => (
+                  <div key={t} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "#CCC" }}>{t}</div>
+                    <div style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>{d}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {DAYS.map((d, i) => {
-              const dT = d.exercises.reduce((a, e) => a + e.sets, 0);
-              const dD = d.exercises.reduce((a, e) =>
-                a + Array.from({ length: e.sets }, (_, s) => getD(week, d.id, e.name, s)).filter(Boolean).length, 0);
-              const dp = dT ? Math.round((dD / dT) * 100) : 0;
+              const st = dayStats(d, week);
+              const dp = st.total ? Math.min(100, Math.round((st.done / st.total) * 100)) : 0;
               return (
                 <div key={d.id} onClick={() => { switchDay(i); setTab("workout"); }}
                   style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 16, padding: "14px", marginBottom: 10, cursor: "pointer" }}>
@@ -477,7 +544,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: d.color + "22", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>{d.emoji}</div>
                       <div>
                         <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 18, letterSpacing: 1, color: "#EFEFEF" }}>
-                          DAY {d.id} {d.optional && <span style={{ fontSize: 12, color: "#444", fontFamily: "'Inter'", fontWeight: 500 }}>optional</span>}
+                          DAY {d.id} {d.optional && <span style={{ fontSize: 12, color: "#444", fontFamily: "'Inter'", fontWeight: 500 }}>{d.tag || "optional"}</span>}
                         </div>
                         <div style={{ fontSize: 12, color: "#666" }}>{d.label} · {d.exercises.length} exercises</div>
                       </div>
@@ -489,8 +556,8 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {d.exercises.map(e => {
-                      const cur = maxWeightForEx(week, d.id, e.name, e.sets);
-                      const prev = week > 1 ? maxWeightForEx(week - 1, d.id, e.name, e.sets) : 0;
+                      const cur = maxWeightForEx(week, d.id, e.name);
+                      const prev = week > 1 ? maxWeightForEx(week - 1, d.id, e.name) : 0;
                       const delta = cur - prev;
                       const deltaColor = delta > 0 ? "#22C55E" : delta < 0 ? "#EF4444" : "#555";
                       return (
@@ -516,6 +583,18 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 </div>
               );
             })}
+
+            {(program.schedules || []).map(sch => (
+              <div key={sch.title} style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 16, padding: "14px", marginTop: 4, marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#444", letterSpacing: 2, marginBottom: 10 }}>{sch.title}</div>
+                {sch.rows.map(([d, t]) => (
+                  <div key={d} style={{ display: "flex", gap: 10, marginBottom: 6 }}>
+                    <div style={{ width: 56, flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#888" }}>{d}</div>
+                    <div style={{ fontSize: 12, color: "#555", lineHeight: 1.5 }}>{t}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
 
             <div style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 16, padding: "14px", marginTop: 4, marginBottom: 4 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: "#444", letterSpacing: 2, marginBottom: 10 }}>RULES</div>
@@ -582,7 +661,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
             {(() => {
               const e = progressEx;
               const weeklyMaxes = Array.from({ length: TOTAL_WEEKS }, (_, wi) =>
-                maxWeightForEx(wi + 1, day.id, e.name, e.sets)
+                maxWeightForEx(wi + 1, day.id, e.name)
               );
               const cur = weeklyMaxes[week - 1] || 0;
               const prev = week > 1 ? (weeklyMaxes[week - 2] || 0) : 0;
