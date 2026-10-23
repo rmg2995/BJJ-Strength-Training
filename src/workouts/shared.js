@@ -66,6 +66,7 @@ export const week = [
   },
   {
     day: "Sun",
+    also: "D", // optional Zone 2 walk lives here when you skip basketball
     extras: ["Easy basketball, or the Zone 2 walk (Day D) if you skip it"],
     recovery: [
       "Cold shower or ice bath, 5–10 minutes (best day since you didn't lift)",

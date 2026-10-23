@@ -92,6 +92,8 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
   const DAYS = program.days;
   const todayIdx = (new Date().getDay() + 6) % 7; // Mon = 0
+  // Weekday label for a day id, from the weekly plan ("Sat"); swap-in days have none
+  const weekdayFor = id => (program.week || []).find(w => w.lift?.id === id || w.also === id)?.day;
   const TOTAL_WEEKS = program.totalWeeks;
 
   const safeDayIdx = Math.min(dayIdx, DAYS.length - 1);
@@ -292,11 +294,16 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 const full = st.total > 0 && st.done >= st.total;
                 return (
                   <button key={d.id} onClick={() => switchDay(i)} style={{
-                    flex: 1, padding: "8px 0", borderRadius: 10, border: "none", cursor: "pointer",
+                    flex: 1, padding: "6px 0", borderRadius: 10, border: "none", cursor: "pointer",
                     background: full ? "#14532D" : i === safeDayIdx ? day.color : "#16161E",
                     color: full ? "#22C55E" : i === safeDayIdx ? "#fff" : "#555",
-                    fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: 1,
-                  }}>{d.id}{full ? " ✓" : ""}</button>
+                    fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: 1, lineHeight: 1.1,
+                  }}>
+                    {d.id}{full ? " ✓" : ""}
+                    <div style={{ fontFamily: "'Inter'", fontSize: 9, fontWeight: 600, letterSpacing: 0.5, opacity: 0.75, marginTop: 2 }}>
+                      {(weekdayFor(d.id) || "swap").toUpperCase()}
+                    </div>
+                  </button>
                 );
               })}
             </div>
