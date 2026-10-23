@@ -103,6 +103,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
   const resolve = (e, w, kk = 1) => resolveExercise(e, w, kk, program.deloadWeek);
   const exs = day.exercises.map(e => resolve(e, week, k));
   const ex = exs[safeExIdx];
+  const isRounds = ["intervals", "emom"].includes(ex.progression?.type);
 
   const getW = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.w || "";
   const getD = (w, dId, eName, s) => data[wk(level, w, dId, eName, s)]?.d || false;
@@ -340,7 +341,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                   </div>
                   <div style={{ textAlign: "center", marginLeft: 14, flexShrink: 0 }}>
                     <div style={{ fontFamily: "'Barlow Condensed'", fontSize: 36, fontWeight: 800, color: day.color, lineHeight: 1 }}>{ex.sets}</div>
-                    <div style={{ fontSize: 9, color: "#555", letterSpacing: 1, fontWeight: 600 }}>{ex.progression?.type === "intervals" ? "ROUNDS" : "SETS"}</div>
+                    <div style={{ fontSize: 9, color: "#555", letterSpacing: 1, fontWeight: 600 }}>{isRounds ? "ROUNDS" : "SETS"}</div>
                   </div>
                 </div>
                 <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -358,6 +359,11 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                 <div style={{ fontSize: 13, color: "#777", lineHeight: 1.5 }}>
                   {ex.spine && <span style={{ color: "#F59E0B", marginRight: 4 }}>🦴</span>}{ex.note}
                 </div>
+                {ex.bjj && (
+                  <div style={{ fontSize: 12, color: day.color, marginTop: 6, lineHeight: 1.45 }}>
+                    <span style={{ fontSize: 10, letterSpacing: 1.5, fontWeight: 700, marginRight: 6 }}>FOR BJJ</span>{ex.bjj}
+                  </div>
+                )}
                 {!ex.cond && ex.pair && (
                   <div style={{ fontSize: 11, color: "#4A4A5A", marginTop: 4 }}>
                     Superset: alternate {ex.pair[0]}1 ↔ {ex.pair[0]}2 and rest only after the {ex.pair[0]}2 set. Keeps your heart rate up.
@@ -391,7 +397,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
                       borderRadius: 12, padding: "8px 12px", transition: "all 0.2s",
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, color: "#333", width: 22, textAlign: "center", flexShrink: 0 }}>{ex.progression?.type === "intervals" ? "R" : "S"}{i + 1}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 700, fontSize: 14, color: "#333", width: 22, textAlign: "center", flexShrink: 0 }}>{isRounds ? "R" : "S"}{i + 1}</div>
                         <input
                           type="number"
                           placeholder={ex.log || "lbs / kg"}

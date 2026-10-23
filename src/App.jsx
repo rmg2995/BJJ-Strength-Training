@@ -6,7 +6,7 @@ import { migrateLogs } from "./migrations";
 
 const PROGRAMS = { intermediate, advanced };
 const STORAGE_KEY = "bjj.v1";
-const SCHEMA = 2; // 2 = 3-lift layout; older saves get their logs copied across once
+const SCHEMA = 3; // 3 = BJJ-focused 3-lift layout; older saves get their logs copied across once
 
 const today = () => new Date().toDateString();
 

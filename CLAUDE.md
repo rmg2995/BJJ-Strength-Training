@@ -34,6 +34,7 @@ Each program exports:
     cond?,        // conditioning item: ignores deload/readiness set scaling
     noScale?,     // never scaled (Minimum Dose)
     log?,         // input placeholder instead of "lbs / kg", e.g. "RPE / notes"
+    bjj?,         // one line on what the exercise does for jiu jitsu; shown as "FOR BJJ"
     progression?  // declarative weekly plan, see below
   }] }],
   why: [[title, detail], ...],
@@ -44,13 +45,15 @@ Each program exports:
 
 `progression` is data, not code, and is resolved in `engine.js`:
 - `{ type: "intervals", hard, easy, table }` — `table[week]` is `[rounds, workSeconds, restSeconds]` (index 0 is `null`). Rounds scale with readiness and drive the timer.
+- `{ type: "emom", moves, table }` — `table[week]` is the number of cycles; one cycle is one minute per entry in `moves`. Cycles scale with readiness.
+- `{ type: "amrap", label, minutes }` — `minutes[week]` for a single countdown block; scales with readiness (minimum 3 min). Log rounds completed in the one set row.
 - `{ type: "steady", label, minutes }` — `minutes[week]` for a single steady-state block.
 
 `spine: true` flags exercises that load the lumbar — surfaces the 🦴 marker in the UI. The L4/L5 warning is rendered from this flag.
 
 ## Training model
 
-Three short lifts per week stacked around BJJ: A heavy, B moderate, C light. `Minimum Dose` (M) is the bad-week swap for C, and `Zone 2 Walk` (D) is optional recovery cardio. The week-4 deload cuts non-conditioning sets ~40%. The "Today I feel" buttons (Fresh / Tired / Gassed) scale sets and rounds for that day only; readiness resets when the date changes.
+Three short lifts per week stacked around BJJ: A heavy (pull + hip drive, ends with a pull/grip EMOM), B moderate (push + single-leg, ends with a squat/push AMRAP), C light (grip, neck, hips, ends with heavy-bag rounds). Every exercise carries a `bjj` line so the program stays tied to what the sport needs. `Minimum Dose` (M) is the bad-week swap for C, and `Zone 2 Walk` (D) is optional recovery cardio. The week-4 deload cuts non-conditioning sets ~40%. The "Today I feel" buttons (Fresh / Tired / Gassed) scale sets and rounds for that day only; readiness resets when the date changes.
 
 ## Logged-set storage
 

@@ -28,6 +28,13 @@ export function resolveExercise(e, w, k = 1, deloadWeek = 4) {
     const [rounds, work, rest] = p.table[w];
     r.sets = sc(rounds, k);
     r.reps = `${fmt(work)} hard / ${fmt(rest)} rest`;
+  } else if (p?.type === "emom") {
+    // table[week] = cycles; one cycle = one minute per move
+    r.sets = sc(p.table[w], k);
+    r.reps = `${r.sets * p.moves.length} min EMOM`;
+  } else if (p?.type === "amrap") {
+    r.sets = 1;
+    r.reps = `${Math.max(3, Math.round(p.minutes[w] * k))} min AMRAP`;
   } else if (p?.type === "steady") {
     r.sets = 1;
     r.reps = `${p.minutes[w]} min`;
@@ -50,6 +57,19 @@ export function buildSegments(e, w) {
       if (r < e.sets - 1) out.push({ label: p.easy, secs: rest, kind: "rest", round: r });
     }
     return out;
+  }
+  if (p?.type === "emom") {
+    const out = [];
+    for (let r = 0; r < e.sets; r++) {
+      p.moves.forEach((m, i) => {
+        out.push({ label: m, secs: 60, kind: "work", round: r, done: i === p.moves.length - 1 ? r : undefined });
+      });
+    }
+    return out;
+  }
+  if (p?.type === "amrap") {
+    const mins = parseInt(e.reps, 10);
+    return [{ label: p.label, secs: mins * 60, kind: "work", round: 0, done: 0 }];
   }
   if (p?.type === "steady") {
     return [{ label: p.label, secs: p.minutes[w] * 60, kind: "work", round: 0, done: 0 }];
