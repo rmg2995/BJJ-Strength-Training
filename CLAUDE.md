@@ -39,7 +39,7 @@ Each program exports:
 
 - Programs are pure data. The UI never hardcodes day/exercise names.
 - Day order is stable (A → B → C → D). Adding/removing days is fine; the UI adapts. Adding a new program means a new file in `src/workouts/` plus an entry in the `PROGRAMS` map and `LEVELS` array.
-- Day colors are a deliberate visual code (Pull=blue, Lower=green, Press=purple, Accessory=orange). Keep them consistent across programs.
+- Day colors are a deliberate visual code (Pull=blue, Lower=green, Press=purple, Conditioning/Gas Tank=orange). Keep them consistent across programs.
 - Don't refactor the inline-style approach — it's intentional for the embedded `<style>` deployment use case.
 
 ## Running
