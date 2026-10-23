@@ -86,11 +86,12 @@ function ExerciseChart({ values, color, totalWeeks, currentWeek, large = false }
 export default function WorkoutApp({ level, program, onLevelChange, data, setData, week, setWeek, ready, onReadyChange }) {
   const [dayIdx, setDayIdx] = useState(0);
   const [exIdx, setExIdx] = useState(0);
-  const [tab, setTab] = useState("workout");
+  const [tab, setTab] = useState("week");
   const [showWeekPicker, setShowWeekPicker] = useState(false);
   const [selectedExName, setSelectedExName] = useState(null);
 
   const DAYS = program.days;
+  const todayIdx = (new Date().getDay() + 6) % 7; // Mon = 0
   const TOTAL_WEEKS = program.totalWeeks;
 
   const safeDayIdx = Math.min(dayIdx, DAYS.length - 1);
@@ -466,6 +467,114 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
         </>)}
 
+        {tab === "week" && (
+          /* ── Week tab ── */
+          <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 10px" }}>
+
+            {/* Level toggle */}
+            <div style={{ display: "flex", gap: 4, background: "#13131A", border: "1px solid #1C1C22", borderRadius: 99, padding: 3, marginBottom: 14, width: "fit-content" }}>
+              {LEVELS.map(l => (
+                <button key={l.id} onClick={() => changeLevel(l.id)} style={{
+                  padding: "5px 14px", borderRadius: 99, border: "none", cursor: "pointer",
+                  background: l.id === level ? "#2563EB" : "transparent",
+                  color: l.id === level ? "#fff" : "#555",
+                  fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 13, letterSpacing: 2,
+                }}>{l.short}</button>
+              ))}
+            </div>
+
+            {(() => {
+              const plan = program.week || [];
+              const today = plan[todayIdx];
+              const openLift = id => { const i = DAYS.findIndex(x => x.id === id); if (i >= 0) { switchDay(i); setTab("workout"); } };
+              const Label = ({ children }) => (
+                <div style={{ fontSize: 10, letterSpacing: 2, color: "#444", fontWeight: 700, marginBottom: 6 }}>{children}</div>
+              );
+              return (<>
+                <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 28, letterSpacing: 1, marginBottom: 10 }}>YOUR WEEK</div>
+
+                {today && (() => {
+                  const lift = today.lift && DAYS.find(x => x.id === today.lift.id);
+                  return (
+                    <div style={{ background: "#16161E", border: "1.5px solid #2A2A38", borderRadius: 16, padding: 14, marginBottom: 14 }}>
+                      <Label>TODAY · {today.day.toUpperCase()}</Label>
+                      {lift ? (
+                        <button onClick={() => openLift(today.lift.id)} style={{
+                          width: "100%", textAlign: "left", padding: "12px 14px", borderRadius: 12, border: "none", cursor: "pointer",
+                          background: lift.color, color: "#fff", fontFamily: "'Inter'", fontWeight: 600, fontSize: 15,
+                        }}>Start Day {lift.id}: {lift.label} →</button>
+                      ) : (
+                        <div style={{ fontSize: 15, color: "#EFEFEF", fontWeight: 600 }}>{(today.bjj || []).join(" · ") || "Recovery day"}</div>
+                      )}
+                      <div style={{ fontSize: 12, color: "#777", marginTop: 8, lineHeight: 1.5 }}>
+                        {today.lift ? today.lift.time : (today.extras || [])[0] || today.tip}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {plan.map((d, i) => {
+                  const isToday = i === todayIdx;
+                  const lift = d.lift && DAYS.find(x => x.id === d.lift.id);
+                  return (
+                    <div key={d.day} style={{
+                      background: "#13131A", border: `1.5px solid ${isToday ? "#EFEFEF44" : "#1C1C22"}`,
+                      borderRadius: 16, padding: 14, marginBottom: 10,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                        <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 22, letterSpacing: 1, color: "#EFEFEF" }}>{d.day.toUpperCase()}</div>
+                        {isToday && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, background: "#EFEFEF", color: "#0C0C10", borderRadius: 99, padding: "2px 8px" }}>TODAY</span>}
+                      </div>
+
+                      {(d.bjj || []).map(t => (
+                        <div key={t} style={{ fontSize: 13, color: "#EFEFEF", fontWeight: 600, marginBottom: 6 }}>🥋 {t}</div>
+                      ))}
+                      {lift && (
+                        <button onClick={() => openLift(d.lift.id)} style={{
+                          width: "100%", textAlign: "left", padding: "10px 12px", borderRadius: 10, border: `1px solid ${lift.color}55`,
+                          background: lift.color + "22", cursor: "pointer", marginBottom: 6,
+                        }}>
+                          <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 16, letterSpacing: 0.5, color: lift.color }}>{lift.emoji} DAY {lift.id} · {lift.label.toUpperCase()}</div>
+                          <div style={{ fontSize: 11, color: "#777", marginTop: 2 }}>{d.lift.time}</div>
+                        </button>
+                      )}
+                      {(d.extras || []).map(t => (
+                        <div key={t} style={{ fontSize: 12, color: "#999", marginBottom: 6 }}>＋ {t}</div>
+                      ))}
+                      {!d.bjj && !lift && !(d.extras || []).length && (
+                        <div style={{ fontSize: 13, color: "#777", marginBottom: 6 }}>Rest day</div>
+                      )}
+
+                      {d.tip && <div style={{ fontSize: 11, color: "#555", marginBottom: 8, lineHeight: 1.45 }}>{d.tip}</div>}
+
+                      <div style={{ borderTop: "1px solid #1C1C22", paddingTop: 8 }}>
+                        <Label>RECOVERY</Label>
+                        {d.recovery.map(t => (
+                          <div key={t} style={{ fontSize: 12, color: "#8A8A9A", lineHeight: 1.5, marginBottom: 3, paddingLeft: 12, textIndent: -12 }}>• {t}</div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {program.recovery && (<>
+                  <div style={{ fontFamily: "'Barlow Condensed'", fontWeight: 800, fontSize: 22, letterSpacing: 1, margin: "18px 0 8px" }}>RECOVERY MENU</div>
+                  {program.recovery.map(r => (
+                    <details key={r.name} style={{ background: "#13131A", border: "1px solid #1C1C22", borderRadius: 14, padding: "12px 14px", marginBottom: 8 }}>
+                      <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 600, color: "#EFEFEF" }}>{r.name}</summary>
+                      <div style={{ fontSize: 12, color: "#777", margin: "8px 0 6px", lineHeight: 1.5 }}>{r.when}</div>
+                      {r.steps.map(t => (
+                        <div key={t} style={{ fontSize: 12, color: "#AAA", lineHeight: 1.5, marginBottom: 3, paddingLeft: 12, textIndent: -12 }}>• {t}</div>
+                      ))}
+                      {r.caution && <div style={{ fontSize: 11, color: "#F59E0B", marginTop: 8, lineHeight: 1.5 }}>⚠ {r.caution}</div>}
+                    </details>
+                  ))}
+                </>)}
+              </>);
+            })()}
+          </div>
+        )}
+
         {tab === "overview" && (
           /* ── Overview tab ── */
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 10px" }}>
@@ -728,7 +837,7 @@ export default function WorkoutApp({ level, program, onLevelChange, data, setDat
 
         {/* Bottom nav */}
         <div style={{ background: "#0C0C10", borderTop: "1px solid #16161E", display: "flex", padding: "8px 16px 20px", gap: 8, flexShrink: 0 }}>
-          {[["workout", "🏋️", "Workout"], ["progress", "📈", "Progress"], ["overview", "📋", "Overview"]].map(([id, icon, label]) => (
+          {[["week", "📅", "Week"], ["workout", "🏋️", "Workout"], ["progress", "📈", "Progress"], ["overview", "📋", "Overview"]].map(([id, icon, label]) => (
             <button key={id} onClick={() => setTab(id)} style={{
               flex: 1, padding: "9px", borderRadius: 12, border: "none", cursor: "pointer",
               background: tab === id ? "#16161E" : "transparent",

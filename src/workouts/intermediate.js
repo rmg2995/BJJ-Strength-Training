@@ -1,4 +1,6 @@
 // INTERMEDIATE program: 3 short lifts a week built to carry over to BJJ, stacked around 3–4 classes.
+import { week, recovery } from "./shared";
+
 // Pure data. Week- and readiness-dependent values are resolved in src/engine.js
 // from each exercise's optional `progression` (intervals | emom | amrap | steady).
 const intermediate = {
@@ -121,19 +123,9 @@ const intermediate = {
     ["Short timed finishers on every day", "A has a pull and grip EMOM, B has a squat and push AMRAP, C has the bag. About 6 minutes each, built to train the fading-in-round-4 problem."],
     ["Day C is the shock absorber", "It's the light day, built to be trimmed. When you're Tired or Gassed everything shrinks, or you swap it for Minimum Dose, and you still hit 3 days."],
   ],
+  week,
+  recovery,
   schedules: [
-    {
-      title: "YOUR WEEK (BJJ MWF 7AM + OPTIONAL THU 7:30PM)",
-      rows: [
-        ["Mon", "BJJ (gi) 7–8 am. Nothing else."],
-        ["Tue", "Day B (moderate), 8:00–8:45 am after drop-off. No grip work today: Wednesday is gi."],
-        ["Wed", "BJJ (gi) 7–8 am. Busy day, no training."],
-        ["Thu", "Day C (light), 8:00–8:45 am. The grip work lives here, since Friday is no-gi. Optional class 7:30 pm if you feel Fresh."],
-        ["Fri", "BJJ (no-gi) 7–8 am. Expect a faster, more cardio-heavy class."],
-        ["Sat", "Day A (heavy) at any time. Grip is fresh again by Monday's gi class."],
-        ["Sun", "Easy basketball, or the Zone 2 walk (Day D) if you skip it."],
-      ],
-    },
     {
       title: "IF YOUR WEEK GETS DISRUPTED",
       rows: [

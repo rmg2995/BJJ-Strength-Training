@@ -11,11 +11,12 @@ A mobile-first React app for tracking an 8-week BJJ-specific strength program. D
 ## Layout
 
 - [src/App.jsx](src/App.jsx) — top-level state (`level`, `week`, daily `ready`, and the shared `data` map for logged sets) plus `localStorage` persistence
-- [src/WorkoutApp.jsx](src/WorkoutApp.jsx) — data-driven UI; receives `program` + `level` and renders the Workout, Progress and Overview tabs
+- [src/WorkoutApp.jsx](src/WorkoutApp.jsx) — data-driven UI; receives `program` + `level` and renders the Week, Workout, Progress and Overview tabs (opens on Week)
 - [src/engine.js](src/engine.js) — pure helpers that turn program data into a week- and readiness-specific session (deload, Tired/Gassed scaling, timer segments, phases)
 - [src/IntervalTimer.jsx](src/IntervalTimer.jsx) — countdown timer with beeps/vibration; marks rounds done as they finish
 - [src/migrations.js](src/migrations.js) — one-time copy of old logged sets onto the current exercise names
 - [src/workouts/intermediate.js](src/workouts/intermediate.js) — intermediate program data (3 lifts + Minimum Dose + Zone 2)
+- [src/workouts/shared.js](src/workouts/shared.js) — weekly plan (Mon–Sun with BJJ, lift and recovery) and the recovery menu used by both levels
 - [src/workouts/advanced.js](src/workouts/advanced.js) — advanced program data (same layout, more volume)
 
 The two `.jsx` files at the repo root are the original single-file versions. The React project consumes the extracted data; if you tweak a program, edit the file under `src/workouts/`.
@@ -37,6 +38,8 @@ Each program exports:
     bjj?,         // one line on what the exercise does for jiu jitsu; shown as "FOR BJJ"
     progression?  // declarative weekly plan, see below
   }] }],
+  week: [{ day, bjj?: [text], lift?: { id, time }, extras?: [text], recovery: [text], tip }],  // Mon..Sun, shared via src/workouts/shared.js
+  recovery: [{ name, when, steps: [text], caution }],                                          // recovery menu, also in shared.js
   why: [[title, detail], ...],
   schedules: [{ title, rows: [[day, text], ...] }],
   rules: [[title, detail], ...]
